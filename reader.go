@@ -766,42 +766,13 @@ func (r *Reader) Close() error {
 	return nil
 }
 
-// ReadMessage reads and return the next message from the r. The method call
-// blocks until a message becomes available, or an error occurs. The program
-// may also specify a context to asynchronously cancel the blocking operation.
+// FetchBatchMessage reads and return batch messages
 //
 // The method returns io.EOF to indicate that the reader has been closed.
 //
-// If consumer groups are used, ReadMessage will automatically commit the
-// offset when called. Note that this could result in an offset being committed
-// before the message is fully processed.
-//
-// If more fine grained control of when offsets are  committed is required, it
-// is recommended to use FetchMessage with CommitMessages instead.
-func (r *Reader) ReadMessage(ctx context.Context) (Message, error) {
-	m, err := r.FetchMessage(ctx)
-	if err != nil {
-		return Message{}, err
-	}
-
-	if r.useConsumerGroup() {
-		if err := r.CommitMessages(ctx, m); err != nil {
-			return Message{}, err
-		}
-	}
-
-	return m, nil
-}
-
-// FetchMessage reads and return the next message from the r. The method call
-// blocks until a message becomes available, or an error occurs. The program
-// may also specify a context to asynchronously cancel the blocking operation.
-//
-// The method returns io.EOF to indicate that the reader has been closed.
-//
-// FetchMessage does not commit offsets automatically when using consumer groups.
+// FetchBatchMessage does not commit offsets automatically when using consumer groups.
 // Use CommitMessages to commit the offset.
-func (r *Reader) FetchMessage(ctx context.Context) (Message, error) {
+func (r *Reader) FetchBatchMessage(ctx context.Context) (BatchMessage, error) {
 	r.activateReadLag()
 
 	for {
@@ -816,14 +787,14 @@ func (r *Reader) FetchMessage(ctx context.Context) (Message, error) {
 
 		select {
 		case <-ctx.Done():
-			return Message{}, ctx.Err()
+			return BatchMessage{}, ctx.Err()
 
 		case err := <-r.runError:
-			return Message{}, err
+			return BatchMessage{}, err
 
 		case m, ok := <-r.msgs:
 			if !ok {
-				return Message{}, io.EOF
+				return BatchMessage{}, io.EOF
 			}
 
 			if m.version >= version {
@@ -832,8 +803,8 @@ func (r *Reader) FetchMessage(ctx context.Context) (Message, error) {
 				switch {
 				case m.error != nil:
 				case version == r.version:
-					r.offset = m.message.Offset + 1
-					r.lag = m.watermark - r.offset
+					r.offset = m.batch.Messages[len(m.batch.Messages)-1].Offset + 1
+					r.lag = 0
 				}
 
 				r.mutex.Unlock()
@@ -846,7 +817,7 @@ func (r *Reader) FetchMessage(ctx context.Context) (Message, error) {
 					m.error = io.ErrUnexpectedEOF
 				}
 
-				return m.message, m.error
+				return m.batch, m.error
 			}
 		}
 	}
@@ -1229,9 +1200,16 @@ type reader struct {
 	offsetOutOfRangeError bool
 }
 
+type BatchMessage struct {
+	Topic         string
+	Partition     int
+	HighWatermark int64
+	Messages      []Message
+}
+
 type readerMessage struct {
 	version   int64
-	message   Message
+	batch     BatchMessage
 	watermark int64
 	error     error
 }
@@ -1480,6 +1458,7 @@ func (r *reader) read(ctx context.Context, offset int64, conn *Conn) (int64, err
 	r.stats.waitTime.observeDuration(t1.Sub(t0))
 
 	var msg Message
+	var msgs []Message
 	var err error
 	var size int64
 	var bytes int64
@@ -1502,11 +1481,7 @@ func (r *reader) read(ctx context.Context, offset int64, conn *Conn) (int64, err
 		n := int64(len(msg.Key) + len(msg.Value))
 		r.stats.messages.observe(1)
 		r.stats.bytes.observe(n)
-
-		if err = r.sendMessage(ctx, msg, highWaterMark); err != nil {
-			batch.Close()
-			break
-		}
+		msgs = append(msgs, msg)
 
 		offset = msg.Offset + 1
 		r.stats.offset.observe(offset)
@@ -1514,6 +1489,17 @@ func (r *reader) read(ctx context.Context, offset int64, conn *Conn) (int64, err
 
 		size++
 		bytes += n
+	}
+	if len(msgs) != 0 {
+		batchMsg := BatchMessage{
+			Topic:         batch.topic,
+			Partition:     batch.partition,
+			HighWatermark: highWaterMark,
+			Messages:      msgs,
+		}
+		if err = r.sendMessage(ctx, batchMsg, highWaterMark); err != nil {
+			batch.Close()
+		}
 	}
 
 	conn.SetReadDeadline(time.Time{})
@@ -1530,9 +1516,9 @@ func (r *reader) readOffsets(conn *Conn) (first, last int64, err error) {
 	return conn.ReadOffsets()
 }
 
-func (r *reader) sendMessage(ctx context.Context, msg Message, watermark int64) error {
+func (r *reader) sendMessage(ctx context.Context, batch BatchMessage, watermark int64) error {
 	select {
-	case r.msgs <- readerMessage{version: r.version, message: msg, watermark: watermark}:
+	case r.msgs <- readerMessage{version: r.version, batch: batch, watermark: watermark}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
