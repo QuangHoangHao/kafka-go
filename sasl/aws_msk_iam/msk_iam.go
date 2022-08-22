@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/QuangHoangHao/kafka-go/sasl"
 	sigv4 "github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/segmentio/kafka-go/sasl"
 )
 
 const (

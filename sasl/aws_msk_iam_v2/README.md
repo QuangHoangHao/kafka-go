@@ -9,7 +9,7 @@ This module is an extension for MSK users and thus this is isolated from `kafka-
 You can add this module to your dependency by running the command below.
 
 ```shell
-go get github.com/segmentio/kafka-go/sasl/aws_msk_iam_v2
+go get github.com/QuangHoangHao/kafka-go/sasl/aws_msk_iam_v2
 ```
 
 You can use the `Mechanism` for SASL authentication, like below.
@@ -24,8 +24,8 @@ import (
 
 	signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awsCfg "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/sasl/aws_msk_iam_v2"
+	"github.com/QuangHoangHao/kafka-go"
+	"github.com/QuangHoangHao/kafka-go/sasl/aws_msk_iam_v2"
 )
 
 func main() {

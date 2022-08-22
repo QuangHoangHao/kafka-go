@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/segmentio/kafka-go/protocol"
-	"github.com/segmentio/kafka-go/protocol/createtopics"
-	meta "github.com/segmentio/kafka-go/protocol/metadata"
+	"github.com/QuangHoangHao/kafka-go/protocol"
+	"github.com/QuangHoangHao/kafka-go/protocol/createtopics"
+	meta "github.com/QuangHoangHao/kafka-go/protocol/metadata"
 )
 
 func TestIssue477(t *testing.T) {

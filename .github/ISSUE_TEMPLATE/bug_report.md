@@ -1,10 +1,9 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
+title: ""
 labels: bug
-assignees: ''
-
+assignees: ""
 ---
 
 **Describe the bug**
@@ -13,8 +12,8 @@ assignees: ''
 
 **Kafka Version**
 
-> * What version(s) of Kafka are you testing against?
-> * What version of kafka-go are you using?
+> - What version(s) of Kafka are you testing against?
+> - What version of kafka-go are you using?
 
 **To Reproduce**
 
@@ -29,14 +28,13 @@ assignees: ''
 #
 # If one the docker-compose files available in the repository may be used,
 # mentioning it is also a useful alternative.
-...
 ```
 
 ```go
 package main
 
 import (
-    "github.com/segmentio/kafka-go"
+    "github.com/QuangHoangHao/kafka-go"
 )
 
 func main() {
