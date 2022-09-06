@@ -10,7 +10,6 @@ import (
 	"math"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -441,19 +440,6 @@ func (g *Generation) CommitOffsets(offsets map[string]map[int]int64) error {
 	}
 
 	_, err := g.conn.offsetCommit(request)
-	if err == nil {
-		// if logging is enabled, print out the partitions that were committed.
-		g.log(func(l Logger) {
-			var report []string
-			for _, t := range request.Topics {
-				report = append(report, fmt.Sprintf("\ttopic: %s", t.Topic))
-				for _, p := range t.Partitions {
-					report = append(report, fmt.Sprintf("\t\tpartition %d: %d", p.Partition, p.Offset))
-				}
-			}
-			l.Printf("committed offsets for group %s: \n%s", g.GroupID, strings.Join(report, "\n"))
-		})
-	}
 
 	return err
 }
